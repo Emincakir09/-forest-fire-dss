@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Orman Yangını Erken Uyarı Sistemi</title>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <!-- Sol Panel: Harita -->
+        <div id="map-container">
+            <div id="map"></div>
+            <div class="map-controls">
+                <button onclick="focusOnData()" class="map-btn">📍 Veri Seti Bölgesine Odakla</button>
+                <button onclick="toggleOverlay()" id="toggle-btn" class="map-btn">👁️ Duyarlılık Bölgesini Kapat</button>
+            </div>
+            <div class="map-overlay">
+                <h3>Dünya Üzerinden Bölge Seçin</h3>
+                <p>Tıkladığınız noktanın verileri otomatik çekilecektir.</p>
+                <div class="map-legend">
+                    <p><strong>Duyarlılık (TIF):</strong></p>
+                    <div class="legend-item"><span class="box red"></span> Yüksek Hassasiyet</div>
+                    <div class="legend-item"><span class="box yellow"></span> Orta Hassasiyet</div>
+                    <div class="legend-item"><span class="box green"></span> Düşük Hassasiyet</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sağ Panel: Kontroller ve Sonuç -->
+        <div id="controls">
+            <div class="lang-switcher">
+                <span class="lang-label">🌐 Language / Dil:</span>
+                <button onclick="switchLanguage('tr')" class="lang-btn active" id="btn-tr">TR</button>
+                <button onclick="switchLanguage('en')" class="lang-btn" id="btn-en">EN</button>
+            </div>
+            <header>
+                <div class="badge" data-i18n="badge">KARAR DESTEK SİSTEMİ (KDS)</div>
+                <h1>🔥 FireManager Pro</h1>
+                <p data-i18n="header-p">İtfaiye ve Orman Yönetimi Planlama Arayüzü</p>
+            </header>
+
+            <!-- Senaryo Araçları -->
+            <section class="scenario-tools">
+                <h3 data-i18n="scenario-h3">🛠️ Gelişmiş Senaryo Analizi (15 Parametre)</h3>
+                <p style="font-size: 0.75rem; margin-bottom: 10px; opacity: 0.8;" data-i18n="scenario-p">Her bir parametreyi değiştirerek risk üzerindeki etkisini gözlemleyin.</p>
+                
+                <div class="scenario-tabs">
+                    <button class="tab-btn active" onclick="showTab('topo')" data-i18n="tab-topo">Dağ/Arazi</button>
+                    <button class="tab-btn" onclick="showTab('veg')" data-i18n="tab-veg">Bitki/Uydu</button>
+                    <button class="tab-btn" onclick="showTab('meteo')" data-i18n="tab-meteo">Hava Durumu</button>
+                </div>
+
+                <div id="topo-sliders" class="tab-content active">
+                    <div class="slider-group">
+                        <label data-i18n="lbl-elev">🏔️ Yükseklik (m)</label>
+                        <input type="range" id="slider-Feat1_Elev" min="-500" max="500" value="0" oninput="updateParam('Feat1_Elev', this.value, 'delta')">
+                        <span id="val-Feat1_Elev">0m</span>
+                    </div>
+                    <div class="slider-group">
+                        <label data-i18n="lbl-slop">📐 Eğim (%)</label>
+                        <input type="range" id="slider-Feat2_Slop" min="-30" max="30" value="0" oninput="updateParam('Feat2_Slop', this.value, 'delta')">
+                        <span id="val-Feat2_Slop">0%</span>
+                    </div>
+                    <div class="slider-group">
+                        <label data-i18n="lbl-aspe">🧭 Bakı (Derece)</label>
+                        <input type="range" id="slider-Feat3_Aspe" min="-180" max="180" value="0" oninput="updateParam('Feat3_Aspe', this.value, 'delta')">
+                        <span id="val-Feat3_Aspe">0°</span>
+                    </div>
+                    <div class="slider-group">
+                        <label data-i18n="lbl-lan">🗺️ Arazi Kodu</label>
+                        <input type="range" id="slider-Feat14_Lan" min="-10" max="10" value="0" oninput="updateParam('Feat14_Lan', this.value, 'delta')">
+                        <span id="val-Feat14_Lan">0</span>
+                    </div>
+                </div>
+
+                <div id="veg-sliders" class="tab-content">
+                    <div class="slider-group">
+                        <label data-i18n="lbl-ndvi">🌿 NDVI (Sağlık)</label>
+                        <input type="range" id="slider-Feat4_NDVI" min="-50" max="50" value="0" oninput="updateParam('Feat4_NDVI', this.value, 'percent')">
+                        <span id="val-Feat4_NDVI">0%</span>
+                    </div>
+                    <div class="slider-group">
+                        <label data-i18n="lbl-ndwi">💧 NDWI (Su Kont.)</label>
+                        <input type="range" id="slider-Feat5_NDWI" min="-50" max="50" value="0" oninput="updateParam('Feat5_NDWI', this.value, 'percent')">
+                        <span id="val-Feat5_NDWI">0%</span>
+                    </div>
+                    <div class="slider-group">
+                        <label data-i18n="lbl-bsi">🪨 BSI (Çıplaklık)</label>
+                        <input type="range" id="slider-Feat6_BSI_" min="-50" max="50" value="0" oninput="updateParam('Feat6_BSI_', this.value, 'percent')">
+                        <span id="val-Feat6_BSI_">0%</span>
+                    </div>
+                    <div class="slider-group">
+                        <label data-i18n="lbl-evi">🍃 EVI (Gelişmiş)</label>
+                        <input type="range" id="slider-Feat7_EVI_" min="-50" max="50" value="0" oninput="updateParam('Feat7_EVI_', this.value, 'percent')">
+                        <span id="val-Feat7_EVI_">0%</span>
+                    </div>
+                    <div class="slider-group">
+                        <label data-i18n="lbl-lai">🌳 LAI (Yaprak)</label>
+                        <input type="range" id="slider-Feat15_LAI" min="-50" max="50" value="0" oninput="updateParam('Feat15_LAI', this.value, 'percent')">
+                        <span id="val-Feat15_LAI">0%</span>
+                    </div>
+                </div>
+
+                <div id="meteo-sliders" class="tab-content">
+                    <div class="slider-group">
+                        <label data-i18n="lbl-temp">🌡️ Sıcaklık (K)</label>
+                        <input type="range" id="slider-Feat8_Temp" min="-15" max="15" value="0" oninput="updateParam('Feat8_Temp', this.value, 'delta')">
+                        <span id="val-Feat8_Temp">0K</span>
+                    </div>
+                    <div class="slider-group">
+                        <label data-i18n="lbl-prec">🌧️ Yağış (mm)</label>
+                        <input type="range" id="slider-Feat9_Prec" min="-5" max="5" value="0" step="0.1" oninput="updateParam('Feat9_Prec', this.value, 'delta')">
+                        <span id="val-Feat9_Prec">0mm</span>
+                    </div>
+                    <div class="slider-group">
+                        <label data-i18n="lbl-windu">💨 Rüzgar U (Hız)</label>
+                        <input type="range" id="slider-Feat10_U_W" min="-10" max="10" value="0" step="0.5" oninput="updateParam('Feat10_U_W', this.value, 'delta')">
+                        <span id="val-Feat10_U_W">0</span>
+                    </div>
+                    <div class="slider-group">
+                        <label data-i18n="lbl-windv">🌬️ Rüzgar V (Yön)</label>
+                        <input type="range" id="slider-Feat11_V_W" min="-10" max="10" value="0" step="0.5" oninput="updateParam('Feat11_V_W', this.value, 'delta')">
+                        <span id="val-Feat11_V_W">0</span>
+                    </div>
+                    <div class="slider-group">
+                        <label data-i18n="lbl-dew">🌫️ Çiğ Noktası</label>
+                        <input type="range" id="slider-Feat12_Dew" min="-10" max="10" value="0" oninput="updateParam('Feat12_Dew', this.value, 'delta')">
+                        <span id="val-Feat12_Dew">0</span>
+                    </div>
+                    <div class="slider-group">
+                        <label data-i18n="lbl-pop">👥 Nüfus Etkisi</label>
+                        <input type="range" id="slider-Feat13_Pop" min="-100" max="100" value="0" oninput="updateParam('Feat13_Pop', this.value, 'delta')">
+                        <span id="val-Feat13_Pop">0</span>
+                    </div>
+                </div>
+
+                <div class="tool-buttons" style="margin-top: 15px;">
+                    <button onclick="resetParams()" data-i18n="btn-reset">🔄 Tümünü Sıfırla</button>
+                </div>
+            </section>
+
+            <div class="input-sections">
+                <div class="section">
+                    <h4 data-i18n="sec-topo">🏔️ Topografya & Coğrafya</h4>
+                    <div class="input-grid">
+                        <div class="input-group"><label data-i18n="lbl-elev-short">Yükseklik (m)</label><input type="number" id="Feat1_Elev"></div>
+                        <div class="input-group"><label data-i18n="lbl-slop-short">Eğim (%)</label><input type="number" id="Feat2_Slop"></div>
+                        <div class="input-group"><label data-i18n="lbl-aspe-short">Bakı (0-360)</label><input type="number" id="Feat3_Aspe"></div>
+                        <div class="input-group"><label data-i18n="lbl-lan-short">Arazi Tipi</label><input type="number" id="Feat14_Lan"></div>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h4 data-i18n="sec-veg">🍃 Bitki Örtüsü & Uydu</h4>
+                    <div class="input-grid">
+                        <div class="input-group"><label data-i18n="lbl-ndvi-short">NDVI (Sağlık)</label><input type="number" id="Feat4_NDVI" step="0.01"></div>
+                        <div class="input-group"><label data-i18n="lbl-ndwi-short">NDWI (Su)</label><input type="number" id="Feat5_NDWI" step="0.01"></div>
+                        <div class="input-group"><label data-i18n="lbl-bsi-short">BSI (Çıplak)</label><input type="number" id="Feat6_BSI_" step="0.01"></div>
+                        <div class="input-group"><label data-i18n="lbl-lai-short">LAI (Yaprak)</label><input type="number" id="Feat15_LAI" step="0.01"></div>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h4 data-i18n="sec-meteo">☁️ Meteorolojik Koşullar</h4>
+                    <div class="input-grid">
+                        <div class="input-group"><label data-i18n="lbl-temp-short">Sıcaklık (K)</label><input type="number" id="Feat8_Temp" step="0.1"></div>
+                        <div class="input-group"><label data-i18n="lbl-prec-short">Yağış (mm)</label><input type="number" id="Feat9_Prec" step="0.01"></div>
+                        <div class="input-group"><label data-i18n="lbl-windu-short">Rüzgar U</label><input type="number" id="Feat10_U_W" step="0.1"></div>
+                        <div class="input-group"><label data-i18n="lbl-windv-short">Rüzgar V</label><input type="number" id="Feat11_V_W" step="0.1"></div>
+                        <div class="input-group"><label data-i18n="lbl-dew-short">Çiğ Noktası</label><input type="number" id="Feat12_Dew" step="0.1"></div>
+                    </div>
+                </div>
+            </div>
+
+            <button id="predict-btn" class="glow-on-hover" data-i18n="btn-predict">SENARYOYU ANALİZ ET VE KARAR ÜRET</button>
+
+            <div id="result-panel" class="hidden">
+                <div class="result-card">
+                    <h2 id="result-status">ANALİZ EDİLİYOR...</h2>
+                    <div class="probability-bar">
+                        <div id="prob-fill" style="width: 0%;"></div>
+                    </div>
+                    <div class="decision-box">
+                        <p><strong>Yapay Zeka Karar Önerisi:</strong></p>
+                        <p id="decision-text">Veriler işleniyor...</p>
+                    </div>
+                    <p id="result-prob">Güven Oranı: %0</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+</html>

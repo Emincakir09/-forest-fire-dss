@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+*$py.class
+.env
+.venv
+env/
+venv/
+ENV/
+# Modelleri GitHub'a yüklüyoruz çünkü site bunlarla çalışıyor.
+# *.joblib
+# *.pkl
+# Geçici TIF dosyası
+temp_wgs84.tif
